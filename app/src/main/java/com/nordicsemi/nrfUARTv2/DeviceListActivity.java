@@ -33,6 +33,8 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -71,7 +73,7 @@ public class DeviceListActivity extends Activity {
     private DeviceAdapter deviceAdapter;
     private ServiceConnection onService = null;
     Map<String, Integer> devRssiValues;
-    private static final long SCAN_PERIOD = 10000; //scanning for 10 seconds
+    private static final long SCAN_PERIOD = 40000; //scanning for 10 seconds
     private Handler mHandler;
     private boolean mScanning;
 
@@ -144,7 +146,7 @@ public class DeviceListActivity extends Activity {
                 @Override
                 public void run() {
 					mScanning = false;
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    mBluetoothAdapter.getBluetoothLeScanner().stopScan(leScanCallback);
                         
                     cancelButton.setText(R.string.scan);
 
@@ -152,16 +154,33 @@ public class DeviceListActivity extends Activity {
             }, SCAN_PERIOD);
 
             mScanning = true;
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+            mBluetoothAdapter.getBluetoothLeScanner().startScan(leScanCallback);
+
             cancelButton.setText(R.string.cancel);
         } else {
             mScanning = false;
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            mBluetoothAdapter.getBluetoothLeScanner().stopScan(leScanCallback);
             cancelButton.setText(R.string.scan);
         }
 
     }
 
+    // Device scan callback.
+    private ScanCallback leScanCallback = new ScanCallback() {
+        @Override
+        public void onScanResult(int callbackType, final ScanResult result) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    BluetoothDevice device = result.getDevice();
+                    int rssi = result.getRssi();
+                    addDevice(device,rssi);
+                }
+            });
+        }
+    };
+
+    /*
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
             new BluetoothAdapter.LeScanCallback() {
 
@@ -176,6 +195,7 @@ public class DeviceListActivity extends Activity {
             });
         }
     };
+    */
     
     private void addDevice(BluetoothDevice device, int rssi) {
         boolean deviceFound = false;
@@ -187,15 +207,10 @@ public class DeviceListActivity extends Activity {
             }
         }
         
-        
         devRssiValues.put(device.getAddress(), rssi);
         if (!deviceFound) {
         	deviceList.add(device);
             mEmptyList.setVisibility(View.GONE);
-                 	
-        	
-
-            
             deviceAdapter.notifyDataSetChanged();
         }
     }
@@ -212,15 +227,13 @@ public class DeviceListActivity extends Activity {
     @Override
     public void onStop() {
         super.onStop();
-        mBluetoothAdapter.stopLeScan(mLeScanCallback);
-    
+        mBluetoothAdapter.getBluetoothLeScanner().stopScan(leScanCallback);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mBluetoothAdapter.stopLeScan(mLeScanCallback);
-        
+        mBluetoothAdapter.getBluetoothLeScanner().stopScan(leScanCallback);
     }
 
     private OnItemClickListener mDeviceClickListener = new OnItemClickListener() {
@@ -228,8 +241,8 @@ public class DeviceListActivity extends Activity {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
             BluetoothDevice device = deviceList.get(position);
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-  
+            mBluetoothAdapter.getBluetoothLeScanner().stopScan(leScanCallback);
+
             Bundle b = new Bundle();
             b.putString(BluetoothDevice.EXTRA_DEVICE, deviceList.get(position).getAddress());
 
@@ -322,3 +335,4 @@ public class DeviceListActivity extends Activity {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 }
+
