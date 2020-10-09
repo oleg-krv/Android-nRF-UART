@@ -22,7 +22,7 @@
   -->
 <resources>
 
-    <string name="app_name">nRF UART v2.0</string>
+    <string name="app_name">Camera Slider</string>
     <string name="device">Device:</string>
     <string name="no_device">&lt;Select a device&gt;</string>
     <string name="select_device">Select a device</string>
@@ -35,7 +35,7 @@
     <string name="disconnected">Not connected</string>
     <string name="ready">Ready</string>
     <string name="disconnect">Disconnect</string>
-    <string name="connect">connect</string>
+    <string name="connect">Connect</string>
     <string name="unpair">unpair</string>
     <string name="pair">pair</string>
     <string name="RadioButton1">Alert level high</string>
@@ -69,5 +69,13 @@
     <string name="ble_not_supported">Bluetooth Low Energy not supported</string>
     <string name="scan">Scan</string>
     <string name="cancel">Cancel</string>
-    
+    <string name="start_at_mm">Start at, mm</string>
+    <string name="home">Home</string>
+    <string name="_0">0</string>
+    <string name="stop_at_mm">Stop at, mm :</string>
+    <string name="_500">500</string>
+    <string name="_5">5</string>
+    <string name="minutes">Minutes:</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
 </resources>

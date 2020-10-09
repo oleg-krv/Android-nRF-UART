@@ -20,20 +20,21 @@
  * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
  * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package com.nordicsemi.nrfUARTv2;
-
-
-
-
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.stream.Stream;
 
 
 import com.nordicsemi.nrfUARTv2.UartService;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -86,6 +87,42 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
     private ArrayAdapter<String> listAdapter;
     private Button btnConnectDisconnect,btnSend;
     private EditText edtMessage;
+
+    /* Camera slider specific code */
+    // Commands
+    public static final char HOME_COMMAND = 0x0;
+    public static final char START_COMMAND = 0x01;
+    public static final char STOP_COMMAND = 0x02;
+    public static final char STATUS_COMMAND = 0x03;
+    public static final char STATUS_PAYLOAD_BUSY = 0x01;
+    public static final char STATUS_PAYLOAD_IDLE = 0x00;
+    public static final char STATUS_PAYLOAD_ERROR = 0xff;
+    public static final char STATUS_PAYLOAD_TIME_REMAINING = 0x02;
+
+    private static final byte STATE_RUNNING = 1;
+    private static final byte STATE_IDLE = 2;
+    private static final byte STATE_ERROR = 0;
+
+    private Button btHome,btAction;
+    private EditText editStartPosition, editEndPosition, editTime;
+    private byte currentState = STATE_IDLE; // Running or Idle
+
+    public static byte[] integersToBytes(int[] values)
+    {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream dos = new DataOutputStream(baos);
+        for(int i=0; i < values.length; ++i)
+        {
+            try {
+                dos.writeInt(values[i]);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return baos.toByteArray();
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -101,12 +138,16 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
         messageListView.setAdapter(listAdapter);
         messageListView.setDivider(null);
         btnConnectDisconnect=(Button) findViewById(R.id.btn_select);
-        btnSend=(Button) findViewById(R.id.sendButton);
-        edtMessage = (EditText) findViewById(R.id.sendText);
+
+        // New UI elements initialisation
+        btAction = (Button) findViewById(R.id.btAction);
+        btHome = (Button) findViewById(R.id.btHome);
+        editStartPosition = (EditText) findViewById(R.id.editStartPosition);
+        editEndPosition = (EditText) findViewById(R.id.editTextEndPosition);
+        editTime = (EditText) findViewById(R.id.editTime);
+
         service_init();
 
-     
-       
         // Handle Disconnect & Connect button
         btnConnectDisconnect.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -134,32 +175,55 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
                 }
             }
         });
-        // Handle Send button
-        btnSend.setOnClickListener(new View.OnClickListener() {
+
+        // Handle Home button click
+        btHome.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-            	EditText editText = (EditText) findViewById(R.id.sendText);
-            	String message = editText.getText().toString();
-            	byte[] value;
-				try {
-					//send data to service
-					value = message.getBytes("UTF-8");
-					mService.writeRXCharacteristic(value);
-					//Update the log with time stamp
-					String currentDateTimeString = DateFormat.getTimeInstance().format(new Date());
-					listAdapter.add("["+currentDateTimeString+"] TX: "+ message);
-               	 	messageListView.smoothScrollToPosition(listAdapter.getCount() - 1);
-               	 	edtMessage.setText("");
-				} catch (UnsupportedEncodingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-                
+                byte[] value = {HOME_COMMAND};
+                //send data to service
+                mService.writeRXCharacteristic(value);
             }
         });
-     
+
+        // Handle Action button click
+        btAction.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(currentState == STATE_IDLE) {
+
+                    // get start, stop position and time travel values
+                    int startPosition = editStartPosition.getText().toString().equals("")?0:Integer.parseInt(String.valueOf(editStartPosition.getText()));
+                    // Hardcoded 500 mm !!!
+                    int stopPosition = editEndPosition.getText().toString().equals("")?500:Integer.parseInt(String.valueOf(editEndPosition.getText()));
+                    // hardcoded to 5 minutes
+                    int timeTravel = editTime.getText().toString().equals("")?5:Integer.parseInt(String.valueOf(editTime.getText()));
+
+                    int[] intValues = {startPosition, stopPosition, timeTravel};
+                    byte[] intValuesInByte = integersToBytes(intValues);
+                    byte[] payloadCommand = {START_COMMAND};
+
+                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream( );
+                    try {
+                        outputStream.write( payloadCommand );
+                        outputStream.write( intValuesInByte );
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    byte payload[] = outputStream.toByteArray( );
+                    //send data to service
+                    mService.writeRXCharacteristic(payload);
+                    btAction.setText(R.string.stop);
+                } else {
+                    byte[] value = {STOP_COMMAND};
+                    //send data to service
+                    mService.writeRXCharacteristic(value);
+                    btAction.setText(R.string.start);
+                }
+            }
+        });
         // Set initial UI state
-        
     }
     
     //UART service connected/disconnected
@@ -171,7 +235,6 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
                     Log.e(TAG, "Unable to initialize Bluetooth");
                     finish();
                 }
-
         }
 
         public void onServiceDisconnected(ComponentName classname) {
