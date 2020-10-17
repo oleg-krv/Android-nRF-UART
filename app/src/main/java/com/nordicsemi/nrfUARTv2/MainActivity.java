@@ -215,11 +215,13 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
                     //send data to service
                     mService.writeRXCharacteristic(payload);
                     btAction.setText(R.string.stop);
+                    currentState = STATE_RUNNING;
                 } else {
                     byte[] value = {STOP_COMMAND};
                     //send data to service
                     mService.writeRXCharacteristic(value);
                     btAction.setText(R.string.start);
+                    currentState = STATE_IDLE;
                 }
             }
         });
